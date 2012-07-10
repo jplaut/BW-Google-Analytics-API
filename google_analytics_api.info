@@ -1,0 +1,6 @@
+; $Id: google_analytics_api.info,v 1.8 2010/01/09 01:30:19 jkitching Exp $
+
+name = "Google Analytics API"
+package = Statistics
+description = "API to access statistics from the Google Analytics Data Export API."
+core = 6.x

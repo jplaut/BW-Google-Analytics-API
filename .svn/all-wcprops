@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/!svn/ver/17342/trunk626/sites/all/modules/contrib/google_analytics_api
+END
+google_analytics_api.module
+K 25
+svn:wc:ra_dav:version-url
+V 103
+/svn/!svn/ver/17342/trunk626/sites/all/modules/contrib/google_analytics_api/google_analytics_api.module
+END
+google_analytics_api.info
+K 25
+svn:wc:ra_dav:version-url
+V 101
+/svn/!svn/ver/17342/trunk626/sites/all/modules/contrib/google_analytics_api/google_analytics_api.info
+END
+gapi.class.php
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svn/!svn/ver/17342/trunk626/sites/all/modules/contrib/google_analytics_api/gapi.class.php
+END
+google_analytics_api.admin.inc
+K 25
+svn:wc:ra_dav:version-url
+V 106
+/svn/!svn/ver/17342/trunk626/sites/all/modules/contrib/google_analytics_api/google_analytics_api.admin.inc
+END
