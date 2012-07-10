@@ -1,9 +1,0 @@
-; $Id: google_analytics_reports.info,v 1.2 2010/01/09 01:30:19 jkitching Exp $
-
-name = "Google Analytics Reports"
-package = Statistics
-description = "Provides interface to access Google Analytics API statistics."
-core = 6.x
-dependencies[] = google_analytics_api
-dependencies[] = chart
-dependencies[] = countries_api
