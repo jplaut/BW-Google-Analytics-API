@@ -701,7 +701,7 @@ class gapiOAuth2 extends gapiAuthMethod {
 	* @param string $clientId
 	* @return string
 	*/
-	public function createAuthUrl($clientId) {
+	public static function createAuthUrl($clientId) {
 		$redirect_uri = gapiUrl::currentUrlWithoutGet();
 
 	  	$params = array(
@@ -766,21 +766,15 @@ class gapiOAuth2 extends gapiAuthMethod {
 	}
 	
 	/**
-   * Authenticate and return a seeded gapi instance
+   * We got here from the redirect from a successful authorization grant.
+   * Fetch the access token and return an authenticated gapi.
    *
    * @param String $clientId
    * @param String $clientSecret
    * @return gapi
    */
-	public static function authenticate($clientId, $clientSecret) {
-	    if (isset($_GET['code'])) {
-	      	// We got here from the redirect from a successful authorization grant, fetch the access token
-			return self::fetchToken($clientId, $clientSecret);
-		}
-		
-		// We have not yet been granted a request token, begin authentication process
-		$authUrl = self::createAuthUrl($clientId, $redirect_uri);
-		header('Location: ' . $authUrl);
+	public static function finishAuthentication($clientId, $clientSecret) {
+		return self::fetchToken($clientId, $clientSecret);
 	}
 	
 	/**

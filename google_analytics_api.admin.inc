@@ -59,20 +59,17 @@ function google_analytics_api_admin() {
 	      '#type' => 'submit',
 	      '#value' => t('Revoke access'),
 	      '#weight' => 0,
-		  '#submit' => array('google_analytics_api_admin_revoke'),
 	    );
 	    $form['save'] = array(
 	      '#type' => 'submit',
 	      '#value' => t('Save configuration'),
 	      '#weight' => 3,
-		  '#submit' => array('google_analytics_api_admin_save'),
 	    );
 	  }
   else {
     $form['auth'] = array(
       '#type' => 'submit',
       '#value' => t('Grant access to a Google account'),
-	  '#submit' => array('google_analytics_api_admin_auth'),
     );
   }
 
@@ -105,28 +102,26 @@ function google_analytics_api_admin_account_data_options() {
     return $options;
 }
 
-/*
-* Begins authentication process. 
+/**
+ * Submit handler. Begins the OAuth process, revokes tokens, saves profiles.
 */
-function google_analytics_api_admin_auth($form, &$form_state) {	
-	variable_set('google_analytics_api_client_id', $form_state['values']['client_id']);
-	variable_set('google_analytics_api_client_secret', $form_state['values']['client_secret']);
-    return google_analytics_api_authenticate();
-}
-
-/*
-* Unsets all googleApi variables and revokes token access.
-*/ 
-function google_analytics_api_admin_revoke($form, &$form_state) {
-	drupal_set_message(t('You have revoked access to your Google account.'));
-    return google_analytics_api_logout();
-}
-
-/*
-* Saves googleApi config settings.
-* Performed when user is authenticated and hits "Save" on the config form
-*/
-function google_analytics_api_admin_save($form, &$form_state) {
-	variable_set('google_analytics_api_profile_id', intval($form_state['values']['profile_id']));
-	drupal_set_message('Settings saved.', 'status', FALSE);
+function google_analytics_api_admin_submit($form, &$form_state) {
+	$op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
+	cache_clear_all('bw:ga_reports_data', 'cache', true);
+	cache_clear_all('bw:ga_reports_totals', 'cache', true);
+	switch ($op) {
+	    case t('Grant access to a Google account'):
+			variable_set('google_analytics_api_client_id', $form_state['values']['client_id']);
+			variable_set('google_analytics_api_client_secret', $form_state['values']['client_secret']);
+		    google_analytics_api_authenticate($form_state['values']['client_id']);
+			break;
+		case t('Save configuration'):
+	       	variable_set('google_analytics_api_profile_id', intval($form_state['values']['profile_id']));
+	        drupal_set_message(t('Settings have been saved successfully.'));
+	    	break;
+	    case t('Revoke access'):
+	        drupal_set_message(t('You have revoked access to your Google account.'));
+		    google_analytics_api_logout();
+	      	break;
+	}
 }

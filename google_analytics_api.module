@@ -52,14 +52,10 @@ function google_analytics_api_current_profile() {
 }
 
 /*
- * Programatically trigger a login.
+ * Begin authentication process
  */
-function google_analytics_api_authenticate() {
-	$clientId = variable_get('google_analytics_api_client_id', NULL);
-	$clientSecret = variable_get('google_analytics_api_client_secret', NULL);
-  	gapiOAuth2::authenticate($clientId, $clientSecret);
-	drupal_page_footer();
-	exit;
+function google_analytics_api_authenticate($client_id) {
+  	drupal_goto(gapiOAuth2::createAuthUrl($client_id));
 }
 
 /*
@@ -98,14 +94,12 @@ function google_analytics_api_gapi() {
 	if (variable_get('google_analytics_api_full_token', NULL)) {
     	if (variable_get('google_analytics_api_access_token', NULL) && time() < variable_get('google_analytics_api_expires_at', NULL)) {
 			// If the access token is still valid, authenticate the user with that
-			
 			return gapiOAuth2::withToken(variable_get('google_analytics_api_full_token', NULL));
 		}
 		else if (variable_get('google_analytics_api_refresh_token', NULL)) {
 			// If the site has an access token and refresh token, but the
 			// access token has expired, authenticate the user with the
 			// refresh token
-			
 			$client_id = variable_get('google_analytics_api_client_id', NULL);
 			$client_secret = variable_get('google_analytics_api_client_secret', NULL);
 			$refresh_token = variable_get('google_analytics_api_refresh_token', NULL);
@@ -127,12 +121,11 @@ function google_analytics_api_gapi() {
 	else if (isset($_GET['code'])) {
 		// If there is no access token or refresh token and client is returned
 		// to the config page with an access code, complete the authentication
-		
 		$client_id = variable_get('google_analytics_api_client_id', NULL);
 		$client_secret = variable_get('google_analytics_api_client_secret', NULL);
 		
 		try {
-			$gapi = gapiOAuth2::authenticate($client_id, $client_secret);
+			$gapi = gapiOAuth2::finishAuthentication($client_id, $client_secret);
 		
 			variable_set('google_analytics_api_access_token', $gapi->getToken());
 			variable_set('google_analytics_api_expires_at', $gapi->getExpiresAt());
@@ -196,7 +189,7 @@ function google_analytics_api_report_data($request, $cid = NULL, $expire = NULL,
     foreach ($iterator as $value) { 
       $flattened[] = $value;
     }
-    $cid = md5(implode('', $flattened));
+    $cid = 'bw:ga_reports_data:' . md5(implode('', $flattened));
   }
 
   $cache = cache_get($cid);
