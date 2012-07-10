@@ -4,3 +4,9 @@ reports/CVS
 reports/.svn
 reports/.DS_Store
 .DS_Store
+tests/.svn
+tests/.DS_Store
+tests/CVS
+translations/.svn
+translations/.DS_Store
+translations/CVS
