@@ -704,14 +704,14 @@ class gapiOAuth2 extends gapiAuthMethod {
 	public static function createAuthUrl($clientId) {
 		$redirect_uri = gapiUrl::currentUrlWithoutGet();
 
-	  	$params = array(
-	      		'response_type=code',
-			    'redirect_uri=' . $redirect_uri,
-			    'client_id=' . urlencode($clientId),
-			    'scope=' . self::SCOPE,
-			    'access_type=offline',
-			    'approval_prompt=force' 
-	  			);
+	  $params = array(
+	    'response_type=code',
+      'redirect_uri=' . $redirect_uri,
+      'client_id=' . urlencode($clientId),
+      'scope=' . self::SCOPE,
+      'access_type=offline',
+      'approval_prompt=force'
+    );
 
 		$params = implode('&', $params);
 		return self::OAUTH2_AUTH_URL . "?$params";
@@ -732,20 +732,20 @@ class gapiOAuth2 extends gapiAuthMethod {
 		
 		if ($refreshToken) {
 			$params = array(
-					'client_id' => $clientId,
-					'client_secret' => $clientSecret,
-					'refresh_token' => $refreshToken,
-					'grant_type' => 'refresh_token',
-					);
+			  'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'refresh_token' => $refreshToken,
+        'grant_type' => 'refresh_token'
+      );
 		}
 		else {
 			$params = array(
-					'code' => $_GET['code'],
-		        	'grant_type' => 'authorization_code',
-		        	'redirect_uri' => $redirect_uri,
-		        	'client_id' => $clientId,
-		        	'client_secret' => $clientSecret,
-					);
+			  'code' => $_GET['code'],
+        'grant_type' => 'authorization_code',
+        'redirect_uri' => $redirect_uri,
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret
+      );
 		}
 
 		$response = $url->post(NULL, $params, NULL);
@@ -753,15 +753,16 @@ class gapiOAuth2 extends gapiAuthMethod {
 
 		if (substr($response['code'], 0, 1) == '2') {
 			return gapiOAuth2::withToken($decoded_response);
-		} else {
-	        if ($decoded_response != NULL && $decoded_response['error']) {
-	          $error = $decoded_response['error'];
-	        }
+		} 
+		else {
+	    if ($decoded_response != NULL && $decoded_response['error']) {
+	      $error = $decoded_response['error'];
+	    }
 			else {
 				$error = var_dump($response);
 			}
 			
-	        throw new Exception("Error fetching OAuth2 access token, message: " . $error . " Code: " . $response['code']);
+	    throw new Exception("Error fetching OAuth2 access token, message: " . $error . " Code: " . $response['code']);
 		}
 	}
 	
@@ -828,11 +829,9 @@ class gapiOAuth2 extends gapiAuthMethod {
 
 		$url = new gapiUrl(self::OAUTH2_REVOKE_URI);
 		
-		$response = $url->post(
-								NULL, 
-								"token=$token", 
-								NULL
-							);
+		$response = $url->post(NULL, 
+								          "token=$token", 
+								           NULL);
 
 		if ($response['code'] == 200) {
 			$this->access_token = NULL;
@@ -894,7 +893,8 @@ class gapiUrl {
    */
   public static function currentUrlWithoutGet() {
     $url = self::currentUrl();
-    return substr($url, 0, strpos($url, '?')) . "?q=" . $_GET['q'];
+    $q = isset($_GET['q']) ? '?q=' . $_GET['q'] : '';
+    return substr($url, 0, strpos($url, '?')) . $q;
   }
 
   public function __construct($url) {

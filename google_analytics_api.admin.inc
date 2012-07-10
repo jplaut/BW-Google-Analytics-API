@@ -90,16 +90,16 @@ function google_analytics_api_admin_validate($form, &$form_state) {
  * Returns an associative array of profile IDs and their names for an account.
  */
 function google_analytics_api_admin_account_data_options() {
-    $accounts = google_analytics_api_account_data();
-    $options = array();
-    $i = 0;
-    if (!$accounts) {
-      return array(variable_get('google_analytics_api_profile_id', 0) => t('Account listing unavailable. Currently selected account has ID: @profile-id.', array('@profile-id' => variable_get('google_analytics_api_profile_id', 0))));
-    }
-    foreach ($accounts as $account) {
-      $options[$account->getProfileId()] = t('@title (@profile-id)', array('@title' => $account->getTitle(), '@profile-id' => $account->getProfileId()));
-    }
-    return $options;
+  $accounts = google_analytics_api_account_data();
+  $options = array();
+  $i = 0;
+  if (!$accounts) {
+    return array(variable_get('google_analytics_api_profile_id', 0) => t('Account listing unavailable. Currently selected account has ID: @profile-id.', array('@profile-id' => variable_get('google_analytics_api_profile_id', 0))));
+  }
+  foreach ($accounts as $account) {
+    $options[$account->getProfileId()] = t('@title (@profile-id)', array('@title' => $account->getTitle(), '@profile-id' => $account->getProfileId()));
+  }
+  return $options;
 }
 
 /**
@@ -110,18 +110,18 @@ function google_analytics_api_admin_submit($form, &$form_state) {
 	cache_clear_all('bw:ga_reports_data', 'cache', true);
 	cache_clear_all('bw:ga_reports_totals', 'cache', true);
 	switch ($op) {
-	    case t('Grant access to a Google account'):
+	  case t('Grant access to a Google account'):
 			variable_set('google_analytics_api_client_id', $form_state['values']['client_id']);
-			variable_set('google_analytics_api_client_secret', $form_state['values']['client_secret']);
-		    google_analytics_api_authenticate($form_state['values']['client_id']);
-			break;
+  		variable_set('google_analytics_api_client_secret', $form_state['values']['client_secret']);
+  		google_analytics_api_authenticate($form_state['values']['client_id']);
+  		break;
 		case t('Save configuration'):
-	       	variable_set('google_analytics_api_profile_id', intval($form_state['values']['profile_id']));
-	        drupal_set_message(t('Settings have been saved successfully.'));
-	    	break;
-	    case t('Revoke access'):
-	        drupal_set_message(t('You have revoked access to your Google account.'));
-		    google_analytics_api_logout();
-	      	break;
+	    variable_set('google_analytics_api_profile_id', intval($form_state['values']['profile_id']));
+	    drupal_set_message(t('Settings have been saved successfully.'));
+	    break;
+	  case t('Revoke access'):
+	    drupal_set_message(t('You have revoked access to your Google account.'));
+		  google_analytics_api_logout();
+	    break;
 	}
 }
