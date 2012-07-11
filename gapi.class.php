@@ -1,110 +1,148 @@
 <?php
-// $Id: gapi.class.php,v 1.11 2009/08/18 04:25:56 jkitching Exp $
-
-/**
- * GAPI - Google Analytics PHP Interface
- * 
- * http://code.google.com/p/gapi-google-analytics-php-interface/
- * 
- * @copyright Stig Manning 2009
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- * @author Stig Manning <stig@sdm.co.nz>
- * @author Joel Kitching <jkitching@mailbolt.com>
- * @version 1.3
- * 
- */
 
 class gapi {
-  const account_data_url = 'https://www.google.com/analytics/feeds/accounts/default';
-  const report_data_url = 'https://www.google.com/analytics/feeds/data';
-  const interface_name = 'GAPI-1.3';
-  const dev_mode = false;
+  const ACCOUNT_DATA_URL = 'https://www.google.com/analytics/feeds/accounts/default';
+  const REPORT_DATA_URL = 'https://www.google.com/analytics/feeds/data';
+  const INTERFACE_NAME = 'GAPI-1.3';
+  const DEV_MODE = false;
+	const OAUTH2_REVOKE_URI = 'https://accounts.google.com/o/oauth2/revoke';
+	const OAUTH2_TOKEN_URI = 'https://accounts.google.com/o/oauth2/token';
+	const OAUTH2_AUTH_URL = 'https://accounts.google.com/o/oauth2/auth';
+	const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly https://www.google.com/analytics/feeds/';
 
-  private $auth_method = null;
   private $account_entries = array();
   private $account_root_parameters = array();
   private $report_aggregate_metrics = array();
   private $report_root_parameters = array();
   private $results = array();
+	public $access_token;
+	public $refresh_token=NULL;
+	public $expires_in=NULL;
 
-  /**
-   * Constructor function for all new gapi instances
-   * 
-   * Pass the constructor a concrete gapiAuthMethod instance
+	
+	/**
+   * Constructs either an authenticated gapi instance if given an existing token or an 
+   * unauthenticated gapi if no token is given
    *
-   * @param gapiAuthMethod $auth_method
+   * @param String $token
    * @return gapi
    */
-  public function __construct($auth_method) {
-    $this->auth_method = $auth_method;
-  }
+	public function __construct($token=NULL) {
+		$this->access_token = $token;
+	}
+	
+	/**
+	* Create a URL to obtain user authorization.
+	* The authorization endpoint allows the user to first
+	* authenticate, and then grant/deny the access request.
+	*
+	* @param string $clientId
+	* @return string
+	*/
+	public static function createAuthUrl($clientId) {
+		$redirect_uri = gapiUrl::currentUrlWithoutGet();
 
-  /**
-   * Return the access token string retrieved by Google
-   *
-   * @return String
-   */
-  public function getToken() {
-    return $this->auth_method->getToken();
-  }
+	  $params = array(
+      'response_type=code',
+		  'redirect_uri=' . $redirect_uri,
+		  'client_id=' . urlencode($clientId),
+		  'scope=' . self::SCOPE,
+		  'access_type=offline',
+		  'approval_prompt=force' 
+  	);
 
-  /**
-   * Return the refresh token string retrieved by Google
-   *
-   * @return String
-   */
-  public function getRefreshToken() {
-    return $this->auth_method->getRefreshToken();
-  }
+		$params = implode('&', $params);
+		return self::OAUTH2_AUTH_URL . "?$params";
+	}
+	
+	/**
+	* Authenticate Google Account with OAuth 2.0
+	*
+	* @throws Exception if there was an error fetching the token
+	* @param String $clientId
+	* @param String $clientSecret
+	* @param String $refresh_token
+	*/
+	public function authenticate($clientId, $clientSecret, $refreshToken=NULL) {
+		$url = new gapiUrl(self::OAUTH2_TOKEN_URI);
+		$redirect_uri = gapiUrl::currentUrlWithoutGet();
+		
+		if ($refreshToken) {
+			$params = array(
+				'client_id' => $clientId,
+				'client_secret' => $clientSecret,
+				'refresh_token' => $refreshToken,
+				'grant_type' => 'refresh_token',
+			);
+		}
+		else {
+			$params = array(
+				'code' => $_GET['code'],
+		    'grant_type' => 'authorization_code',
+        'redirect_uri' => $redirect_uri,
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+			);
+		}
 
-  /**
-   * Return the access token string retrieved by Google
-   *
-   * @return String
-   */
-  public function getExpiresAt() {
-    return $this->auth_method->getExpiresAt();
-  }
+		$response = $url->post(NULL, $params, NULL);
+		$decoded_response = json_decode($response['body'], true);
 
-  /**
-   * Return the access token string retrieved by Google
-   *
-   * @return String
-   */
-  public function getFullToken() {
-    return $this->auth_method->getFullToken();
-  }
+		if (substr($response['code'], 0, 1) == '2') {
+		  $this->access_token = $decoded_response['access_token'];
+		  $this->refresh_token = $decoded_response['refresh_token'];
+		  $this->expires_at = time() + $decoded_response['expires_in'];
+		} 
+		else {
+	    if ($decoded_response != NULL && $decoded_response['error']) {
+	      $error = $decoded_response['error'];
+	    }
+		  else {
+				$error = var_dump($response);
+			}
+			
+	    throw new Exception("Error fetching OAuth2 access token, message: " . $error . " Code: " . $response['code']);
+		}
+	}
+	
+	/**
+	* Revoke an OAuth2 access token or refresh token. This method will revoke the current access
+	* token, if a token isn't provided.
+	* @param string|NULL $token The token (access token or a refresh token) that should be revoked.
+	* @return boolean Returns True if the revocation was successful, otherwise False.
+	*/
+	public function revokeToken($token = NULL) {
+		if (!$token) {
+			$token = $this->refresh_token;
+		}
 
-  /**
-   * Return the access token information from the Google service
+		$url = new gapiUrl(self::OAUTH2_REVOKE_URI);
+		
+		$response = $url->post(
+								NULL, 
+								"token=$token", 
+								NULL
+							);
+
+		if ($response['code'] == 200) {
+			$this->access_token = NULL;
+			return true;
+		}
+
+		return false;
+	}
+	
+	/**
+   * Generate authorization token header for all requests
    *
    * @return Array
    */
-  public function getTokenInfo() {
-    return $this->auth_method->getTokenInfo();
-  }
-
-  /**
-   * Revoke the current access token, rendering it invalid for future requests
-   *
-   * @return Boolean
-   */
-  public function revokeToken() {
-    return $this->auth_method->revokeToken();
-  }
+	protected function generateAuthHeader($token=NULL) {
+		if ($token == NULL) {
+			$token = $this->access_token;
+		}
+		return array('Authorization' => 'Bearer ' . $token);
+	}
 
   /**
    * Request account data from Google Analytics
@@ -117,8 +155,8 @@ class gapi {
       'start-index' => $start_index,
       'max-results' => $max_results,
       );
-    $url = new gapiUrl(gapi::account_data_url);
-    $response = $url->post($post_variables, null, $this->auth_method->generateAuthHeader());
+    $url = new gapiUrl(gapi::ACCOUNT_DATA_URL);
+    $response = $url->post($post_variables, null, $this->generateAuthHeader());
 
     if (substr($response['code'], 0, 1) == '2') {
       return $this->accountObjectMapper($response['body']);
@@ -221,10 +259,10 @@ class gapi {
     $parameters['start-index'] = $start_index;
     $parameters['max-results'] = $max_results;
 
-    $parameters['prettyprint'] = gapi::dev_mode ? 'true' : 'false';
+    $parameters['prettyprint'] = gapi::DEV_MODE ? 'true' : 'false';
 
-    $url = new gapiUrl(gapi::report_data_url);
-    $response = $url->get($parameters, $this->auth_method->generateAuthHeader());
+    $url = new gapiUrl(gapi::REPORT_DATA_URL);
+    $response = $url->get($parameters, $this->generateAuthHeader());
 
     //HTTP 2xx
     if (substr($response['code'], 0, 1) == '2' && $response['body']) {
@@ -595,279 +633,9 @@ class gapiReportEntry {
   }
 }
 
-/**
- * Class gapiAuthMethod
- * 
- * Abstract class representing an authorization method
- *
- */
-abstract class gapiAuthMethod {
-  protected $access_token = null;
-
-  /**
-   * Constructs a new gapiAuthMethod class given an existing token
-   *
-   * @param String $access_token
-   * @return gapiAuthMethod
-   */
-  public function __construct($access_token=null) {
-    $this->access_token = $access_token;
-  }
-
-  /**
-   * Return the access token string retrieved from Google
-   *
-   * @return String
-   */
-  public function getToken() {
-    return $this->access_token;
-  }
-
-  /**
-   * Abstract method that returns the authorization method name
-   *
-   * @return String
-   */
-  protected static abstract function getMethodName();
-
-  /**
-   * gapi factory: return an instance of gapi seeded with the access token method
-   * (for use when one already has an authorization token string)
-   *
-   * @param String $access_token
-   * @return gapi
-   */
-  public static function withToken($token) {
-    $class_name = get_called_class();
-    return new gapi(new $class_name($token));
-  }
-
-  /**
-   * Parse the body of a returned key=value page
-   *
-   * @param String $content
-   * @return Array
-   */
-  protected function parseBody($content) {
-    // Convert newline delimited variables into url format then import to array
-    parse_str(str_replace(array("\n", "\r\n"), '&', $content), $array);
-    return $array;
-  }
-}
-
-
-/**
- * Class gapiOAuth2
- * 
- * Represents the OAuth2 authorization method
- *
- */
-
-class gapiOAuth2 extends gapiAuthMethod {
-	protected $access_token=NULL;
-	protected $refresh_token=NULL;
-	protected $expires_in=NULL;
-	protected $full_token=NULL;
-
-	const OAUTH2_REVOKE_URI = 'https://accounts.google.com/o/oauth2/revoke';
-	const OAUTH2_TOKEN_URI = 'https://accounts.google.com/o/oauth2/token';
-	const OAUTH2_AUTH_URL = 'https://accounts.google.com/o/oauth2/auth';
-	const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly https://www.google.com/analytics/feeds/';
-	
-	/**
-   * Constructs a new gapiOAuth2 class given an existing token
-   *
-   * @param String or Array $token
-   * @return gapiOAuth2
-   */
-	public function __construct($token=NULL) {
-		if (is_array($token)) {
-			$this->full_token = $token;
-			$this->access_token = $token['access_token'];
-			$this->expires_in = $token['expires_in'];
-			if (isset($token['refresh_token'])) {
-				$this->refresh_token = $token['refresh_token'];
-			}
-		}
-		else {
-			$this->access_token = $token;
-		}
-	}
-	
-	/**
-	* Create a URL to obtain user authorization.
-	* The authorization endpoint allows the user to first
-	* authenticate, and then grant/deny the access request.
-	* @param string $clientId
-	* @return string
-	*/
-	public static function createAuthUrl($clientId) {
-		$redirect_uri = gapiUrl::currentUrlWithoutGet();
-
-	  	$params = array(
-	      		'response_type=code',
-			    'redirect_uri=' . $redirect_uri,
-			    'client_id=' . urlencode($clientId),
-			    'scope=' . self::SCOPE,
-			    'access_type=offline',
-			    'approval_prompt=force' 
-	  			);
-
-		$params = implode('&', $params);
-		return self::OAUTH2_AUTH_URL . "?$params";
-	}
-	
-	/**
-	* Authenticate Google Account with OAuth 2.0
-	*
-	* @throws Exception if there was an error fetching the token
-	* @param String $clientId
-	* @param String $clientSecret
-	* @param String $refresh_token
-	* @return gapi
-	*/
-	protected function fetchToken($clientId, $clientSecret, $refreshToken=NULL) {
-		$url = new gapiUrl(self::OAUTH2_TOKEN_URI);
-		$redirect_uri = gapiUrl::currentUrlWithoutGet();
-		
-		if ($refreshToken) {
-			$params = array(
-					'client_id' => $clientId,
-					'client_secret' => $clientSecret,
-					'refresh_token' => $refreshToken,
-					'grant_type' => 'refresh_token',
-					);
-		}
-		else {
-			$params = array(
-					'code' => $_GET['code'],
-		        	'grant_type' => 'authorization_code',
-		        	'redirect_uri' => $redirect_uri,
-		        	'client_id' => $clientId,
-		        	'client_secret' => $clientSecret,
-					);
-		}
-
-		$response = $url->post(NULL, $params, NULL);
-		$decoded_response = json_decode($response['body'], true);
-
-		if (substr($response['code'], 0, 1) == '2') {
-			return gapiOAuth2::withToken($decoded_response);
-		} else {
-	        if ($decoded_response != NULL && $decoded_response['error']) {
-	          $error = $decoded_response['error'];
-	        }
-			else {
-				$error = var_dump($response);
-			}
-			
-	        throw new Exception("Error fetching OAuth2 access token, message: " . $error . " Code: " . $response['code']);
-		}
-	}
-	
-	/**
-   * We got here from the redirect from a successful authorization grant.
-   * Fetch the access token and return an authenticated gapi.
-   *
-   * @param String $clientId
-   * @param String $clientSecret
-   * @return gapi
-   */
-	public static function finishAuthentication($clientId, $clientSecret) {
-		return self::fetchToken($clientId, $clientSecret);
-	}
-	
-	/**
-	* Fetches a fresh access token with the given refresh token.
-	* @param String $clientId
-	* @param String $clientSecret
-	* @param string $refreshToken
-	* @return gapi
-	*/
-	public static function withRefreshToken($clientId, $clientSecret, $refreshToken) {
-		return self::fetchToken($clientId, $clientSecret, $refreshToken);
-	}
-
-	/**
-	* Returns token expiration time as a unix timestamp.
-	*
-	* @return Unix timestamp
-	*/
-	public function getExpiresAt() {
-		return time() + $this->expires_in;
-	}
-
-	/**
-	* Returns current refresh token.
-	*
-	* @return String
-	*/
-	public function getRefreshToken() {
-		return $this->refresh_token;
-	}
-	
-	/**
-	* Returns full token response as an associative array.
-	*
-	* @return Array
-	*/
-	public function getFullToken() {
-		return $this->full_token;	
-	}
-	
-	/**
-	* Revoke an OAuth2 access token or refresh token. This method will revoke the current access
-	* token, if a token isn't provided.
-	* @param string|NULL $token The token (access token or a refresh token) that should be revoked.
-	* @return boolean Returns True if the revocation was successful, otherwise False.
-	*/
-	public function revokeToken($token = NULL) {
-		if (!$token) {
-			$token = $this->refresh_token;
-		}
-
-		$url = new gapiUrl(self::OAUTH2_REVOKE_URI);
-		
-		$response = $url->post(
-								NULL, 
-								"token=$token", 
-								NULL
-							);
-
-		if ($response['code'] == 200) {
-			$this->access_token = NULL;
-			return true;
-		}
-
-		return false;
-	}
-	
-	/**
-   * Return the authorization method name
-   *
-   * @return String
-   */
-	protected static function getMethodName() {
-		return 'Bearer';
-	}
-	
-	/**
-   * Generate authorization token header for all requests
-   *
-   * @return Array
-   */
-	public function generateAuthHeader($token=NULL) {
-		if ($token == NULL) {
-			$token = $this->access_token;
-		}
-		return array('Authorization' => $this->getMethodName() . ' ' . $token);
-	}
-}
-
-
 class gapiUrl {
   const http_interface = 'auto'; //'auto': autodetect, 'curl' or 'fopen'
-  const interface_name = gapi::interface_name;
+  const INTERFACE_NAME = gapi::INTERFACE_NAME;
 
   private $url = null;
 

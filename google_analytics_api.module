@@ -55,31 +55,19 @@ function google_analytics_api_current_profile() {
  * Begin authentication process
  */
 function google_analytics_api_authenticate($client_id) {
-  	drupal_goto(gapiOAuth2::createAuthUrl($client_id));
+  	drupal_goto(gapi::createAuthUrl($client_id));
 }
 
 /*
  * Programatically trigger a logout.
  */
 function google_analytics_api_logout() {
-  try {
-    google_analytics_api_gapi()->revokeToken();
-  	variable_del("google_analytics_api_client_id");
-	variable_del("google_analytics_api_client_secret");
-	variable_del("google_analytics_api_access_token");
-	variable_del("google_analytics_api_expires_at");
-	variable_del("google_analytics_api_refresh_token");
-	variable_del("google_analytics_api_full_token");
-	variable_del("google_analytics_api_profile_id");
-  }
-  catch (Exception $e) {
-  }
+  google_analytics_api_gapi()->revokeToken();
 	variable_del("google_analytics_api_client_id");
 	variable_del("google_analytics_api_client_secret");
 	variable_del("google_analytics_api_access_token");
 	variable_del("google_analytics_api_expires_at");
 	variable_del("google_analytics_api_refresh_token");
-	variable_del("google_analytics_api_full_token");
 	variable_del("google_analytics_api_profile_id");
 }
 
@@ -91,59 +79,58 @@ function google_analytics_api_logout() {
 **/
 function google_analytics_api_gapi() {
   if (user_access('administer Google Analytics settings')) {
-	if (variable_get('google_analytics_api_full_token', NULL)) {
-    	if (variable_get('google_analytics_api_access_token', NULL) && time() < variable_get('google_analytics_api_expires_at', NULL)) {
-			// If the access token is still valid, authenticate the user with that
-			return gapiOAuth2::withToken(variable_get('google_analytics_api_full_token', NULL));
-		}
-		else if (variable_get('google_analytics_api_refresh_token', NULL)) {
-			// If the site has an access token and refresh token, but the
-			// access token has expired, authenticate the user with the
-			// refresh token
-			$client_id = variable_get('google_analytics_api_client_id', NULL);
+    if (variable_get('google_analytics_api_access_token', NULL) && time() < variable_get('google_analytics_api_expires_at', NULL)) {
+		  // If the access token is still valid, authenticate the user with that
+		  $gapi = new gapi(variable_get('google_analytics_api_access_token', NULL));
+		  return $gapi;
+	  }
+	  else if (variable_get('google_analytics_api_refresh_token', NULL)) {
+		  // If the site has an access token and refresh token, but the
+		  // access token has expired, authenticate the user with the
+		  // refresh token
+	  	$client_id = variable_get('google_analytics_api_client_id', NULL);
 			$client_secret = variable_get('google_analytics_api_client_secret', NULL);
 			$refresh_token = variable_get('google_analytics_api_refresh_token', NULL);
-			
+	
 			try {
-				$gapi = gapiOAuth2::withRefreshToken($client_id, $client_secret, $refresh_token);
+				$gapi = new gapi();
+				$gapi -> authenticate($client_id, $client_secret, $refresh_token);
+	
+				variable_set("google_analytics_api_access_token", $gapi->access_token);
+				variable_set("google_analytics_api_expires_at", $gapi->expires_at);
 			
-				variable_set("google_analytics_api_access_token", $gapi->getToken());
-				variable_set("google_analytics_api_expires_at", $gapi->getExpiresAt());
-				variable_set("google_analytics_api_full_token", $gapi->getFullToken());
 				return $gapi;
 			}
 			catch (Exception $e) {
 				drupal_set_message(t("There was an authentication error. Message: " . $e->getMessage()), 'error', false);
 				return NULL;
-			}
-		}
-	}
-	else if (isset($_GET['code'])) {
-		// If there is no access token or refresh token and client is returned
-		// to the config page with an access code, complete the authentication
-		$client_id = variable_get('google_analytics_api_client_id', NULL);
-		$client_secret = variable_get('google_analytics_api_client_secret', NULL);
+  			}
+		  }
+  	  else if (isset($_GET['code'])) {
+  		  // If there is no access token or refresh token and client is returned
+    		// to the config page with an access code, complete the authentication
+    		$client_id = variable_get('google_analytics_api_client_id', NULL);
+    		$client_secret = variable_get('google_analytics_api_client_secret', NULL);
 		
-		try {
-			$gapi = gapiOAuth2::finishAuthentication($client_id, $client_secret);
+    		try {
+    			$gapi = new gapi();
+    			$gapi -> authenticate($client_id, $client_secret);
 		
-			variable_set('google_analytics_api_access_token', $gapi->getToken());
-			variable_set('google_analytics_api_expires_at', $gapi->getExpiresAt());
-			variable_set('google_analytics_api_refresh_token', $gapi->getRefreshToken());
-			variable_set('google_analytics_api_full_token', $gapi->getFullToken());
+    			variable_set('google_analytics_api_access_token', $gapi->access_token);
+    			variable_set('google_analytics_api_expires_at', $gapi->expires_at);
+    			variable_set('google_analytics_api_refresh_token', $gapi->refresh_token);
 		
-			drupal_set_message(t('You have granted access to your Google account. Drupal will be able to download information from the account until you revoke access.'));
-		    drupal_goto(gapiUrl::currentUrlWithoutGet());	
-		}
-		catch (Exception $e) {
-			drupal_set_message(t("There was an authentication error. Message: " . $e->getMessage()), 'error', false);
-			return NULL;
-		}
-	}
-	else {
-		return NULL;
-	}
-}
+    			drupal_set_message(t('You have granted access to your Google account. Drupal will be able to download information from the account until you revoke access.'));
+    		  drupal_goto(gapiUrl::currentUrlWithoutGet());	
+    		}
+  		  catch (Exception $e) {
+  			drupal_set_message(t("There was an authentication error. Message: " . $e->getMessage()), 'error', false);
+  			return NULL;
+  		}
+  	}
+  }
+  
+  return NULL;
 }
 
 /*
