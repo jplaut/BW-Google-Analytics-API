@@ -662,7 +662,8 @@ class gapiUrl {
    */
   public static function currentUrlWithoutGet() {
     $url = self::currentUrl();
-    return substr($url, 0, strpos($url, '?')) . "?q=" . $_GET['q'];
+    $q = isset($_GET['q']) ? '?q=' . $_GET['q'] : '';
+    return substr($url, 0, strpos($url, '?')) . $q;
   }
 
   public function __construct($url) {

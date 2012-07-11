@@ -90,16 +90,16 @@ function google_analytics_api_admin_validate($form, &$form_state) {
  * Returns an associative array of profile IDs and their names for an account.
  */
 function google_analytics_api_admin_account_data_options() {
-    $accounts = google_analytics_api_account_data();
-    $options = array();
-    $i = 0;
-    if (!$accounts) {
-      return array(variable_get('google_analytics_api_profile_id', 0) => t('Account listing unavailable. Currently selected account has ID: @profile-id.', array('@profile-id' => variable_get('google_analytics_api_profile_id', 0))));
-    }
-    foreach ($accounts as $account) {
-      $options[$account->getProfileId()] = t('@title (@profile-id)', array('@title' => $account->getTitle(), '@profile-id' => $account->getProfileId()));
-    }
-    return $options;
+  $accounts = google_analytics_api_account_data();
+  $options = array();
+  $i = 0;
+  if (!$accounts) {
+    return array(variable_get('google_analytics_api_profile_id', 0) => t('Account listing unavailable. Currently selected account has ID: @profile-id.', array('@profile-id' => variable_get('google_analytics_api_profile_id', 0))));
+  }
+  foreach ($accounts as $account) {
+    $options[$account->getProfileId()] = t('@title (@profile-id)', array('@title' => $account->getTitle(), '@profile-id' => $account->getProfileId()));
+  }
+  return $options;
 }
 
 /**
